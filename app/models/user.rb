@@ -47,7 +47,7 @@ class User < ApplicationRecord
   
   def create_reset_digest
     self.reset_token = User.new_token
-    update_columns(reset_digest:  FILL_IN, reset_sent_at: FILL_IN)
+    update_columns(reset_digest: true, reset_sent_at: Time.zone.now)
   end
 
   def send_password_reset_email
@@ -55,7 +55,7 @@ class User < ApplicationRecord
   end
   
   def password_reset_expired?
-    reset_sent_at < 2.hours.ago
+    reset_sent_at < 1.hours.ago
   end
   
 
