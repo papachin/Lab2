@@ -1,18 +1,23 @@
 class User < ApplicationRecord
   attr_accessor :remember_token, :activation_token, :reset_token
+
+  before_validation :ensure_token
   before_save   :downcase_email
   before_create :create_activation_digest
   
-  before_save { email.downcase! }
-  validates :name, presence: true, length: {maximum: 50}, uniqueness: true
-  VALID_EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i
-  validates :email, presence: true, length: {maximum: 255}, format: {with: VALID_EMAIL_REGEX}, uniqueness: {case_sensitive: false}
-  
-  has_secure_password
-  validates :password, presence: true, length: { minimum: 6 }
+  validates :name, presence: true, length: { maximum: 50 }
 
-  def self.digest(string)
-    cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
+  VALID_EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i
+  validates :email, presence: true, length: { maximum: 255 },format: { with: VALID_EMAIL_REGEX },uniqueness: { case_sensitive: false }
+ 
+  has_secure_password
+  validates :password, presence: true, length: { minimum: 6 }, allow_nil: true
+  validates :token, uniqueness: true
+  
+
+  def User.digest(string)
+    cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST :
+                                                  BCrypt::Engine.cost
     BCrypt::Password.create(string, cost: cost)
   end
   
@@ -25,7 +30,7 @@ class User < ApplicationRecord
     update_attribute(:remember_digest, User.digest(remember_token))
   end
   
-  def authenticated?(remember_token)
+  def authenticated?(attribute, token)
     digest = send("#{attribute}_digest")
     return false if digest.nil?
     BCrypt::Password.new(digest).is_password?(token)
@@ -41,8 +46,13 @@ class User < ApplicationRecord
     update_attribute(:activated_at, Time.zone.now)
   end
 
-  def send_activation_email
-    UserMailer.account_activation(self).deliver_now
+
+  def send_activation_email(ember_url: false)
+    if ember_url
+      activate
+    else
+      UserMailer.account_activation(self).deliver_now
+    end
   end
   
   
@@ -56,11 +66,12 @@ class User < ApplicationRecord
   end
   
   def password_reset_expired?
-    reset_sent_at < 1.hours.ago
+    reset_sent_at < 2.hours.ago
   end
   
 
   private
+  
     def downcase_email
       self.email = email.downcase
     end
@@ -68,6 +79,17 @@ class User < ApplicationRecord
     def create_activation_digest
       self.activation_token  = User.new_token
       self.activation_digest = User.digest(activation_token)
+    end
+
+    def ensure_token
+      self.token = generate_hex(:token) unless token.present?
+    end
+
+    def generate_hex(column)
+      loop do
+        hex = SecureRandom.hex
+        break hex unless self.class.where(column => hex).any?
+      end
     end
 
 end
