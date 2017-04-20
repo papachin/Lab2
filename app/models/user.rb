@@ -47,10 +47,14 @@ class User < ActiveRecord::Base
     update_attribute(:activated_at, Time.zone.now)
   end
 
-  def send_activation_email
-    UserMailer.account_activation(self).deliver_now
+  def send_activation_email(ember_url: false)
+    if ember_url
+      activate
+    else
+      UserMailer.account_activation(self).deliver_now
+    end
   end
-
+  
   def create_reset_digest
     self.reset_token = User.new_token
     update_attribute(:reset_digest, User.digest(reset_token))
@@ -65,19 +69,15 @@ class User < ActiveRecord::Base
     reset_sent_at < 2.hours.ago
   end
 
-  def feed
-    Micropost.where('user_id = ?', id)
-  end
-
   private
 
-  def downcase_email
-    self.email = email.downcase
-  end
-
-  def create_activation_digest
-    self.activation_token = User.new_token
-    self.activation_digest = User.digest(activation_token)
-  end
+    def downcase_email
+      self.email = email.downcase
+    end
+  
+    def create_activation_digest
+      self.activation_token = User.new_token
+      self.activation_digest = User.digest(activation_token)
+    end
   
 end
