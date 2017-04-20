@@ -59,7 +59,7 @@ group :test do
   gem 'guard-minitest',           '2.4.4'
 end
 
-group :development do 
+group :development, :test do 
    gem 'sqlite3'    #gem to use in development environment
 end
 
